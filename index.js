@@ -15,7 +15,6 @@ const botToken = process.env.telegram_token || '';
 const bot = new TelegramBot(botToken, { polling: true });
 const chats = [];
 const allTickers = [];
-let counter = 0;
 
 // constants
 const TIME_REQUEST_INTERVAL = 60000;
@@ -51,11 +50,8 @@ const init = async () => {
 
 const getTickers = async () => {
 	try {
-		counter++;
-		const { data } = await axios.post('https://testing-bot-bv1v.onrender.com/getTickers', { counter });
+		const { data } = await axios.get('https://testing-bot-bv1v.onrender.com/getTickers');
 		allTickers.push(data);
-
-		console.log(allTickers);
 
 		if (allTickers.length === CHECKING_PERIOD_MINUTES) {
 			startCompare();
