@@ -3,9 +3,9 @@ import express from 'express';
 import dotenv from 'dotenv';
 import TelegramBot from 'node-telegram-bot-api';
 import { connect } from 'mongoose';
-import UserSchema from './models/User.model.js';
 import axios from 'axios';
-import { getPlotImage } from './plot.js';
+import UserSchema from './src/models/User.model.js';
+import { coinPump, movingAverages } from './src/strategies/index.js';
 
 dotenv.config();
 
@@ -13,12 +13,13 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 const botToken = process.env.telegram_token || '';
-const bot = new TelegramBot(botToken, { polling: true });
-const chats = [];
+export const bot = new TelegramBot(botToken, { polling: true });
+export const chats = [];
 const allTickers = [];
+let counter = 0;
 
 // constants
-const SECOND_SERVER = process.env.SECOND_SERVER;
+export const SECOND_SERVER = process.env.SECOND_SERVER;
 const TIME_REQUEST_INTERVAL = 60000;
 const CHECKING_PERIOD_MINUTES = 2;
 
@@ -55,46 +56,37 @@ const getTickers = async () => {
 		allTickers.push(data);
 
 		if (allTickers.length === CHECKING_PERIOD_MINUTES) {
-			startCompare();
+			// startCompare();
+			await coinPump(allTickers);
 			allTickers.shift();
 		}
 
+		if (counter % 50 === 0) {
+			await checkTestCoins();
+			console.log('checkTestCoins', counter);
+		}
+
+		counter++;
 		setTimeout(getTickers, TIME_REQUEST_INTERVAL);
 	} catch (error) {
 		console.log(error);
+		getTickers();
 	}
 };
 
-const startCompare = () => {
-	allTickers[allTickers.length - 1].forEach(async ({ symbol, lastPrice, price24hPcnt }) => {
-		const prevTicker = allTickers[0].find((item) => item.symbol === symbol);
+const checkTestCoins = async () => {
+	try {
+		const { data } = await axios.post(`${SECOND_SERVER}/candles`, { symbol: 'AVAXUSDT', interval: '60', limit: 200 });
+		const result = movingAverages(data);
 
-		if (prevTicker) {
-			const price24hPercent = +price24hPcnt * 100;
-			const shortPerodPercent = ((+lastPrice - +prevTicker.lastPrice) / +prevTicker.lastPrice) * 100;
-
-			if ((shortPerodPercent >= 10 && price24hPercent >= 5) || (shortPerodPercent <= -10 && price24hPercent <= -5)) {
-				const roundedPrice = (+lastPrice).toFixed(4);
-				const roundedPercent = Math.round(shortPerodPercent * 1000) / 1000;
-
-				const text = `
-				🍺 Signal <i>${shortPerodPercent < 0 ? 'down' : 'up'}</i>
-				Token: <b>${symbol}</b>
-				Price: ${roundedPrice}
-				Percent: ${roundedPercent}%
-				Percent 24h: ${price24hPercent.toFixed(3)}%
-				`;
-
-				const candles = await axios.post(`${SECOND_SERVER}/candles`, { symbol });
-				const buffer = await getPlotImage(candles.data, symbol);
-				if (chats.length) {
-					chats.forEach(async ({ userId }) => {
-						bot.sendPhoto(userId, buffer, { caption: text, parse_mode: 'HTML' });
-					});
-				}
-			}
+		if (result) {
+			bot.sendMessage(1046358765, `Moving average signal: ${result}`);
 		}
-	});
+	} catch (error) {
+		console.log(error);
+		counter--;
+		getTickers();
+	}
 };
 
 const getRandomMessage = () => {

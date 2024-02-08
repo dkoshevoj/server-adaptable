@@ -1,9 +1,12 @@
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import dayjs from 'dayjs';
 
-export const getPlotImage = async (data, symbol) => {
-	const prices = data.map((item) => +item[4]);
-	const times = data.map((item) => dayjs(item[0]).format('HH:mm'));
+export const getPlotImage = async (data, symbol, lastPrice) => {
+	const candles = data.reverse();
+	const prices = candles.map((item) => +item[4]);
+	// prices.push(+lastPrice);
+	const times = candles.map((item) => dayjs(+item[0]).format('HH:mm'));
+	// times.push(dayjs(Date.now()).format('HH:mm'));
 
 	const width = 600;
 	const height = 400;
