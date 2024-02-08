@@ -5,6 +5,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { connect } from 'mongoose';
 import UserSchema from './models/User.model.js';
 import axios from 'axios';
+import { getPlotImage } from './plot.js';
 
 dotenv.config();
 
@@ -17,16 +18,16 @@ const chats = [];
 const allTickers = [];
 
 // constants
+const SECOND_SERVER = process.env.SECOND_SERVER;
 const TIME_REQUEST_INTERVAL = 60000;
 const CHECKING_PERIOD_MINUTES = 2;
-const PERCENT = 10;
 
 app.get('/', (_, res) => {
 	res.sendStatus(200);
 });
 
 app.listen(port, () => {
-	console.log(`Server listening at http://localhost:${port}`);
+	console.log(`Server listening at port: ${port}`);
 });
 
 // mongo
@@ -50,7 +51,7 @@ const init = async () => {
 
 const getTickers = async () => {
 	try {
-		const { data } = await axios.get('https://testing-bot-bv1v.onrender.com/getTickers');
+		const { data } = await axios.get(`${SECOND_SERVER}/getTickers`);
 		allTickers.push(data);
 
 		if (allTickers.length === CHECKING_PERIOD_MINUTES) {
@@ -65,17 +66,14 @@ const getTickers = async () => {
 };
 
 const startCompare = () => {
-	allTickers[allTickers.length - 1].forEach(({ symbol, lastPrice, price24hPcnt }) => {
+	allTickers[allTickers.length - 1].forEach(async ({ symbol, lastPrice, price24hPcnt }) => {
 		const prevTicker = allTickers[0].find((item) => item.symbol === symbol);
 
 		if (prevTicker) {
 			const price24hPercent = +price24hPcnt * 100;
 			const shortPerodPercent = ((+lastPrice - +prevTicker.lastPrice) / +prevTicker.lastPrice) * 100;
 
-			if (
-				(shortPerodPercent >= PERCENT && price24hPercent >= 5) ||
-				(shortPerodPercent <= -10 && price24hPercent <= -5)
-			) {
+			if ((shortPerodPercent >= 10 && price24hPercent >= 5) || (shortPerodPercent <= -10 && price24hPercent <= -5)) {
 				const roundedPrice = (+lastPrice).toFixed(4);
 				const roundedPercent = Math.round(shortPerodPercent * 1000) / 1000;
 
@@ -87,9 +85,11 @@ const startCompare = () => {
 				Percent 24h: ${price24hPercent.toFixed(3)}%
 				`;
 
+				const candles = await axios.post(`${SECOND_SERVER}/candles`, { symbol });
+				const buffer = await getPlotImage(candles.data, symbol);
 				if (chats.length) {
 					chats.forEach(async ({ userId }) => {
-						await bot.sendMessage(userId, text, { parse_mode: 'HTML' });
+						bot.sendPhoto(userId, buffer, { caption: text, parse_mode: 'HTML' });
 					});
 				}
 			}
