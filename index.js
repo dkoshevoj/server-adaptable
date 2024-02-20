@@ -20,7 +20,7 @@ let counter = 0;
 
 // constants
 export const SECOND_SERVER = process.env.SECOND_SERVER;
-const TIME_REQUEST_INTERVAL = 60000;
+const TIME_REQUEST_INTERVAL = 120000;
 const CHECKING_PERIOD_MINUTES = 2;
 
 app.get('/', (_, res) => {

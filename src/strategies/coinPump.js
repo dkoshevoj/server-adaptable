@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { SECOND_SERVER, bot, chats } from '../../index.js';
 import { getPlotImage } from '../plot.js';
-import dayjs from 'dayjs';
 
 export const coinPump = async (allTickers) => {
 	allTickers[allTickers.length - 1].forEach(async ({ symbol, lastPrice, price24hPcnt }) => {
@@ -12,7 +11,7 @@ export const coinPump = async (allTickers) => {
 			const shortPerodPercent = ((+lastPrice - +prevTicker.lastPrice) / +prevTicker.lastPrice) * 100;
 
 			// if ((shortPerodPercent >= 10 && price24hPercent >= 5) || (shortPerodPercent <= -10 && price24hPercent <= -5)) {
-			if ((shortPerodPercent >= 5 && price24hPercent >= 5) || (shortPerodPercent <= -5 && price24hPercent <= -5)) {
+			if ((shortPerodPercent >= 10 && price24hPercent >= 5) || (shortPerodPercent <= -10 && price24hPercent <= -5)) {
 				const roundedPrice = (+lastPrice).toFixed(4);
 				const roundedPercent = Math.round(shortPerodPercent * 1000) / 1000;
 
